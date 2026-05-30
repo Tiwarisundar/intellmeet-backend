@@ -6,19 +6,19 @@ const initSocket = require('./src/config/socket');
 
 const PORT = process.env.PORT || 5000;
 
-// Database connect karo
+// Connect to MongoDB
 connectDB();
 
-// HTTP server banao
+// Create HTTP server
 const server = http.createServer(app);
 
-// Socket.io initialize karo
+// initialize Socket.IO
 const io = initSocket(server);
 
 // Global accessible
 app.set('io', io);
 
-// Server start karo
+// Start server
 server.listen(PORT, () => {
   console.log(`🚀 IntellMeet Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
