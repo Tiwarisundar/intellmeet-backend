@@ -1,28 +1,24 @@
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
-// Cloudinary configure karo
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-// Storage setup — avatars folder mein save hoga
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: 'intellmeet/avatars',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ width: 200, height: 200, crop: 'fill' }]
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, `avatar_${uuidv4()}${ext}`);
   }
 });
 
-// Multer upload middleware
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 } // 2MB max
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
+
+const cloudinary = {
+  uploader: { destroy: async () => {} }
+};
 
 module.exports = { cloudinary, upload };

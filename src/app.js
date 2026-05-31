@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -13,6 +14,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+// Static uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -21,7 +25,7 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Auth rate limiting — strict
+// Auth rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,

@@ -10,7 +10,6 @@ const {
 const { protect } = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
 
-// Sabhi routes protected hain — login required
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
 router.post('/avatar', protect, upload.single('avatar'), uploadAvatar);
