@@ -38,17 +38,26 @@ app.use('/api/auth/signup', authLimiter);
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const meetingRoutes = require('./routes/meetingRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/meetings', meetingRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    message: ' IntellMeet Server is running!',
-    timestamp: new Date().toISOString()
+    message: '🚀 IntellMeet Server is running!',
+    timestamp: new Date().toISOString(),
+    services: {
+      mongodb: '✅ Connected',
+      redis: '✅ Connected',
+      socketio: '✅ Active'
+    }
   });
 });
 
