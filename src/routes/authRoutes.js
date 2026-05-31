@@ -1,20 +1,21 @@
-const express = require("express");
-
-const {
-  registerUser,
-  loginUser,
-  refreshAccessToken,
-  logoutUser,
-} = require("../controllers/authController");
-
+const express = require('express');
 const router = express.Router();
+const {
+  signup,
+  login,
+  getMe,
+  logout,
+  refreshToken
+} = require('../controllers/authController');
+const { protect } = require('../middleware/auth');
 
-router.post("/register", registerUser);
+// Public routes
+router.post('/signup', signup);
+router.post('/login', login);
+router.post('/refresh', refreshToken);
 
-router.post("/login", loginUser);
-
-router.post("/refresh-token", refreshAccessToken);
-
-router.post("/logout", logoutUser);
+// Protected routes (login karna padega)
+router.get('/me', protect, getMe);
+router.post('/logout', protect, logout);
 
 module.exports = router;

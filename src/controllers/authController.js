@@ -1,229 +1,197 @@
-const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const User = require('../models/User');
+const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
+const jwt = require('jsonwebtoken');
 
-
-// Generate JWT
-const generateAccessToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "15m",
-  });
-};
-
-const generateRefreshToken = (id) => {
-  return jwt.sign({ id }, process.env.REFRESH_TOKEN_SECRET, {
-    expiresIn: "7d",
-  });
-};
-
-
-// REGISTER USER
-exports.registerUser = async (req, res) => {
+// @route POST /api/auth/signup
+const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Check existing user
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
+    if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "User already exists",
+        message: 'Please provide name, email and password'
       });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered'
+      });
+    }
 
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-    });
-
-    // Generate Access Token
-    const accessToken = generateAccessToken(user._id);
-
-    // Generate Refresh Token
-    const refreshToken = generateRefreshToken(user._id);
-
-    // Save refresh token in DB
-    user.refreshToken = refreshToken;
-
+    const user = new User({ name, email, password });
     await user.save();
 
-    // Send refresh token in cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
-    // Response
+    user.refreshToken = refreshToken;
+    await user.save();
+
     res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message: 'Account created successfully!',
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-      },
+        avatar: user.avatar
+      }
     });
-  } catch (error) {
-    console.log(error);
 
+  } catch (error) {
+    console.log('Signup Error:', error.message);
     res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: error.message
     });
   }
 };
 
-
-// LOGIN USER
-exports.loginUser = async (req, res) => {
+// @route POST /api/auth/login
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check user
-    const user = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password'
+      });
+    }
+
+    const user = await User.findOne({ email }).select('+password');
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: 'Invalid email or password'
       });
     }
 
-    // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isPasswordMatch = await user.comparePassword(password);
 
-    if (!isMatch) {
+    if (!isPasswordMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: 'Invalid email or password'
       });
     }
 
-    // Generate tokens
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Save refresh token
     user.refreshToken = refreshToken;
-
     await user.save();
-
-    // Send refresh token cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
 
     res.status(200).json({
       success: true,
-      message: "Login successful",
+      message: 'Login successful!',
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-      },
+        avatar: user.avatar
+      }
     });
-  } catch (error) {
-    console.log(error);
 
+  } catch (error) {
+    console.log('Login Error:', error.message);
     res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: error.message
     });
   }
 };
 
-
-// REFRESH ACCESS TOKEN
-exports.refreshAccessToken = async (req, res) => {
+// @route GET /api/auth/me
+const getMe = async (req, res) => {
   try {
-    const token = req.cookies.refreshToken;
+    const user = await User.findById(req.user._id);
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
-    if (!token) {
+// @route POST /api/auth/logout
+const logout = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, { refreshToken: '' });
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @route POST /api/auth/refresh
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
       return res.status(401).json({
         success: false,
-        message: "No refresh token",
+        message: 'Refresh token required'
       });
     }
 
-    // Verify refresh token
-    const decoded = jwt.verify(
-      token,
-      process.env.REFRESH_TOKEN_SECRET
-    );
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.id).select('+refreshToken');
 
-    // Find user
-    const user = await User.findById(decoded.id);
-
-    if (!user || user.refreshToken !== token) {
-      return res.status(403).json({
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(401).json({
         success: false,
-        message: "Invalid refresh token",
+        message: 'Invalid refresh token'
       });
     }
 
-    // Generate new access token
-    const accessToken = generateAccessToken(user._id);
+    const newAccessToken = generateAccessToken(user._id);
+    const newRefreshToken = generateRefreshToken(user._id);
+
+    user.refreshToken = newRefreshToken;
+    await user.save();
 
     res.status(200).json({
       success: true,
-      accessToken,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
     });
 
   } catch (error) {
-    res.status(403).json({
+    res.status(401).json({
       success: false,
-      message: "Refresh token expired",
+      message: 'Invalid or expired refresh token'
     });
   }
 };
 
-
-// LOGOUT USER
-exports.logoutUser = async (req, res) => {
-  try {
-
-    const token = req.cookies.refreshToken;
-
-    if (token) {
-
-      const user = await User.findOne({
-        refreshToken: token,
-      });
-
-      if (user) {
-        user.refreshToken = null;
-        await user.save();
-      }
-    }
-
-    res.clearCookie("refreshToken");
-
-    res.status(200).json({
-      success: true,
-      message: "Logged out successfully",
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Logout failed",
-    });
-  }
-};
+module.exports = { signup, login, getMe, logout, refreshToken };
