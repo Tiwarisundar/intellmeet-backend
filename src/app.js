@@ -20,14 +20,14 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // relaxed in dev for active testing
   message: { success: false, message: 'Too many requests' }
 });
 app.use('/api', limiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: process.env.NODE_ENV === 'production' ? 10 : 100, // relaxed in dev for active testing
   message: { success: false, message: 'Too many login attempts' }
 });
 app.use('/api/auth/login', authLimiter);
