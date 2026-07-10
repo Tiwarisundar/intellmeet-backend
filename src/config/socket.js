@@ -70,7 +70,7 @@ const initSocket = (server) => {
     socket.on('leave-meeting', async ({ meetingId, userId, userName }) => {
       socket.leave(meetingId);
       await redis.hdel(`meeting:${meetingId}:participants`, userId);
-      socket.to(meetingId).emit('user-left', { userId, userName });
+      socket.to(meetingId).emit('user-left', { userId, userName, socketId: socket.id });
       console.log(` ${userName} left meeting: ${meetingId}`);
     });
 
@@ -101,17 +101,17 @@ const initSocket = (server) => {
       socket.to(meetingId).emit('user-stop-typing', { userId });
     });
 
-    // WebRTC Signaling
-    socket.on('webrtc-offer', ({ meetingId, offer, fromId }) => {
-      socket.to(meetingId).emit('webrtc-offer', { offer, fromId });
+    // WebRTC Signaling — FIXED: specific socket ko target karo, sahi field names use karo
+    socket.on('webrtc-offer', ({ meetingId, offer, toSocketId, fromSocketId, fromUserId, fromUserName }) => {
+      io.to(toSocketId).emit('webrtc-offer', { offer, fromSocketId, fromUserId, fromUserName });
     });
 
-    socket.on('webrtc-answer', ({ meetingId, answer, fromId }) => {
-      socket.to(meetingId).emit('webrtc-answer', { answer, fromId });
+    socket.on('webrtc-answer', ({ meetingId, answer, toSocketId, fromSocketId, fromUserId, fromUserName }) => {
+      io.to(toSocketId).emit('webrtc-answer', { answer, fromSocketId, fromUserId, fromUserName });
     });
 
-    socket.on('ice-candidate', ({ meetingId, candidate, fromId }) => {
-      socket.to(meetingId).emit('ice-candidate', { candidate, fromId });
+    socket.on('ice-candidate', ({ meetingId, candidate, toSocketId, fromSocketId }) => {
+      io.to(toSocketId).emit('ice-candidate', { candidate, fromSocketId });
     });
 
     // Mute/Video toggle
@@ -132,33 +132,33 @@ const initSocket = (server) => {
     });
 
     // Raise Hand
-socket.on('raise-hand', ({ meetingId, userId, userName }) => {
-  io.to(meetingId).emit('hand-raised', { userId, userName });
-});
+    socket.on('raise-hand', ({ meetingId, userId, userName }) => {
+      io.to(meetingId).emit('hand-raised', { userId, userName });
+    });
 
-socket.on('lower-hand', ({ meetingId, userId }) => {
-  io.to(meetingId).emit('hand-lowered', { userId });
-});
+    socket.on('lower-hand', ({ meetingId, userId }) => {
+      io.to(meetingId).emit('hand-lowered', { userId });
+    });
 
-// Screen Share
-socket.on('screen-share-started', ({ meetingId, userId, userName }) => {
-  io.to(meetingId).emit('user-screen-sharing', { userId, userName });
-});
+    // Screen Share
+    socket.on('screen-share-started', ({ meetingId, userId, userName }) => {
+      io.to(meetingId).emit('user-screen-sharing', { userId, userName });
+    });
 
-socket.on('screen-share-stopped', ({ meetingId, userId }) => {
-  io.to(meetingId).emit('user-screen-share-stopped', { userId });
-});
+    socket.on('screen-share-stopped', ({ meetingId, userId }) => {
+      io.to(meetingId).emit('user-screen-share-stopped', { userId });
+    });
 
-// Report Abuse
-socket.on('report-user', ({ meetingId, reportedUserId, reportedUserName, reason, reportedBy }) => {
-  console.log(` Report: ${reportedUserName} reported by ${reportedBy} for: ${reason}`);
-  socket.emit('report-submitted', { success: true });
-});
+    // Report Abuse
+    socket.on('report-user', ({ meetingId, reportedUserId, reportedUserName, reason, reportedBy }) => {
+      console.log(` Report: ${reportedUserName} reported by ${reportedBy} for: ${reason}`);
+      socket.emit('report-submitted', { success: true });
+    });
 
-// Captions
-socket.on('caption-text', ({ meetingId, userId, userName, text }) => {
-  socket.to(meetingId).emit('receive-caption', { userId, userName, text });
-});
+    // Captions
+    socket.on('caption-text', ({ meetingId, userId, userName, text }) => {
+      socket.to(meetingId).emit('receive-caption', { userId, userName, text });
+    });
 
     socket.on('disconnect', async () => {
       console.log(` User disconnected: ${socket.id}`);
