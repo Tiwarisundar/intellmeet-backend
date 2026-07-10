@@ -16,5 +16,5 @@ app.set('io', io);
 server.listen(PORT, () => {
   console.log(`🚀 IntellMeet Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🔗 Health check: https://intellmeet-backend-ekes.onrender.com/api/health`);
 });
