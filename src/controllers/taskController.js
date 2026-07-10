@@ -12,6 +12,17 @@ const getAllTasks = async (req, res) => {
     if (meetingId) filter.meetingId = meetingId;
     if (assignee) filter.assignee = assignee;
 
+    // Dashboard view (no meetingId given): scope to tasks the logged-in user
+    // created or is assigned to, so a new/other user never sees someone else's tasks.
+    // Meeting Room view (meetingId given): keep it shared across all participants
+    // of that meeting, since that's a collaborative task list.
+    if (!meetingId) {
+      filter.$or = [
+        { createdBy: req.user._id },
+        { assignee: req.user._id }
+      ];
+    }
+
     const tasks = await Task.find(filter)
       .populate('assignee', 'name email avatar')
       .populate('createdBy', 'name email')
