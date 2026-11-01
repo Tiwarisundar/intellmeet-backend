@@ -1,35 +1,41 @@
 const dns = require('dns');
 const mongoose = require('mongoose');
 
-// Windows/ISP DNS SRV lookup block kar deta hai, isliye Google/Cloudflare DNS force karo
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+const isProd = process.env.NODE_ENV === 'production';
+
+// Google DNS sirf local PC pe force karo, Render pe iski zaroorat nahi
+if (!isProd) dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const LOCAL_URI = 'mongodb://localhost:27017/intellmeet';
 
 const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  // Quotes ya extra space hata do
+  const uri = (process.env.MONGODB_URI || process.env.MONGO_URI || '')
+    .trim()
+    .replace(/^["']|["']$/g, '');
 
-  // 1) Pehle .env wali URI try karo (Atlas)
   if (uri) {
+    const host = uri.split('@')[1]?.split('/')[0];
+    console.log('🔌 MongoDB host:', host || '(URI format galat lag raha hai)');
     try {
       const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
       return;
     } catch (error) {
-      console.log('❌ MongoDB (.env URI) Error:', error.message);
-      console.log('↪️  Local MongoDB try kar raha hoon...');
+      console.log('❌ MongoDB Error:', error.message);
+      if (isProd) process.exit(1);
+      console.log('↪️ Local MongoDB try kar raha hoon...');
     }
   } else {
-    console.log('⚠️ .env mein MONGODB_URI nahi mila, local MongoDB try kar raha hoon...');
+    console.log('⚠️ MONGODB_URI set nahi hai');
+    if (isProd) process.exit(1);
   }
 
-  // 2) Fallback: local MongoDB
   try {
     const conn = await mongoose.connect(LOCAL_URI, { serverSelectionTimeoutMS: 5000 });
     console.log(`✅ Local MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.log('❌ Local MongoDB bhi connect nahi hua:', error.message);
-    console.log('👉 Atlas: Network Access mein 0.0.0.0/0 allow karo, ya local mongod service start karo.');
     process.exit(1);
   }
 };
