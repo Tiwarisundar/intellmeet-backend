@@ -3,20 +3,26 @@ const mongoose = require('mongoose');
 
 const isProd = process.env.NODE_ENV === 'production';
 
-// Google DNS sirf local PC pe force karo, Render pe iski zaroorat nahi
+// Google DNS sirf local PC pe force karo
 if (!isProd) dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const LOCAL_URI = 'mongodb://localhost:27017/intellmeet';
 
+// Value ke andar se asli mongodb URL nikaalo (prefix, quotes, space sab ignore)
+const extractUri = (raw = '') => {
+  const match = raw.match(/mongodb(\+srv)?:\/\/[^\s"']+/i);
+  return match ? match[0] : '';
+};
+
 const connectDB = async () => {
-  // Quotes ya extra space hata do
-  const uri = (process.env.MONGODB_URI || process.env.MONGO_URI || '')
-    .trim()
-    .replace(/^["']|["']$/g, '');
+  const raw = process.env.MONGODB_URI || process.env.MONGO_URI || '';
+  const uri = extractUri(raw);
+
+  // Password chhupa ke sirf diagnostic dikhao
+  console.log('🔌 Raw value starts with:', JSON.stringify(raw.slice(0, 14)));
+  console.log('🔌 Parsed URI starts with:', uri.slice(0, 14) || '(kuch nahi mila)');
 
   if (uri) {
-    const host = uri.split('@')[1]?.split('/')[0];
-    console.log('🔌 MongoDB host:', host || '(URI format galat lag raha hai)');
     try {
       const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
@@ -27,7 +33,7 @@ const connectDB = async () => {
       console.log('↪️ Local MongoDB try kar raha hoon...');
     }
   } else {
-    console.log('⚠️ MONGODB_URI set nahi hai');
+    console.log('⚠️ MONGODB_URI set nahi hai ya format galat hai');
     if (isProd) process.exit(1);
   }
 
